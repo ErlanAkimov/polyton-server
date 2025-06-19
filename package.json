@@ -1,0 +1,37 @@
+{
+    "name": "server",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "dev": "nodemon src/index.ts",
+        "prettier": "npx prettier --write .",
+        "send": "bash -c 'rsync -avz --delete --exclude-from='.rsyncignore' ./ poly:/var/www/opolyton.ru/server/'"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "@grammyjs/auto-retry": "^2.0.2",
+        "@grammyjs/conversations": "^2.1.0",
+        "@ton/core": "^0.60.1",
+        "@ton/ton": "^15.2.1",
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.3",
+        "axios": "^1.9.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.5.0",
+        "express": "^5.1.0",
+        "grammy": "^1.36.3",
+        "ioredis": "^5.6.1",
+        "mongodb": "^6.16.0",
+        "sharp": "^0.34.2"
+    },
+    "devDependencies": {
+        "@types/node": "^22.14.1",
+        "nodemon": "^3.1.10",
+        "prettier": "^3.5.3",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.3"
+    }
+}
