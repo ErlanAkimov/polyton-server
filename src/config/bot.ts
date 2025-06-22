@@ -1,10 +1,11 @@
-import { Bot, Context } from 'grammy';
+import { Bot, Context, session } from 'grammy';
 import dotenv from 'dotenv';
-import { Conversation, ConversationFlavor } from '@grammyjs/conversations';
+import { type Conversation, type ConversationFlavor, conversations, createConversation } from '@grammyjs/conversations';
 import { users } from './database';
 import { IUser } from './databaseTypes';
 import createNewUser from '../utils/createNewUser';
 import { autoRetry } from '@grammyjs/auto-retry';
+import spamConversation from '../bot/spamConversation';
 
 dotenv.config();
 
@@ -23,12 +24,27 @@ if (!webhookEndpoint) {
     throw new Error('bot.ts: DOMAIN not found. Check your .env file');
 }
 
-export type MyContext = Context & ConversationFlavor<Context>;
-export type MyConversation = Conversation<MyContext>;
+const bot = new Bot<ConversationFlavor<Context>>(process.env.BOT_TOKEN);
+bot.use(conversations());
 
-const bot = new Bot<MyContext>(process.env.BOT_TOKEN);
+bot.use(createConversation(spamConversation, 'spamConversation'));
 
-bot.api.config.use(autoRetry());
+bot.api.config.use(
+    autoRetry({
+        rethrowHttpErrors: true,
+        rethrowInternalServerErrors: true,
+    })
+);
+
+bot.command('spam', async (ctx) => {
+    const user = await users.findOne({ id: ctx.chatId });
+
+    if (!user || user.status !== 0) {
+        await ctx.reply('Нет доступа к данной команде').catch(() => {});
+        return;
+    }
+});
+
 bot.command('start', async (ctx) => {
     let user: IUser = (await users.findOne({ id: ctx.chatId })) as IUser;
 

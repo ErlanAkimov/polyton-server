@@ -1,4 +1,3 @@
-import { MyContext } from '../config/bot';
 import { users } from '../config/database';
 import { IUser } from '../config/databaseTypes';
 
