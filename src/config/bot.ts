@@ -56,6 +56,7 @@ bot.command('start', async (ctx) => {
             id: ctx.chatId!,
             username: ctx.from?.username,
             ref: Number(ctx.message?.text?.split(' ')[1]) || null,
+            fromBot: true,
         });
     } else if (user && !user.allows_write_to_pm) {
         await users.updateOne({ id: user.id }, { $set: { allows_write_to_pm: true } });
