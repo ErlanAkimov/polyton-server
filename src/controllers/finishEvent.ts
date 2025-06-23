@@ -42,6 +42,11 @@ export const finishEvent = async (req: Request, res: Response) => {
         return;
     }
 
+    if (event.status === 'finished') {
+        res.status(400).send();
+        return;
+    }
+
     // prettier-ignore
     const allVotes = await transactions.find({isVote: true, 'vote.eventId': event.id, status: "complete"}).toArray() as unknown as IVoteTransaction[];
     const creatorTx = (await transactions.findOne({ 'event.id': event.id })) as unknown as IEventTransaction;
@@ -85,9 +90,9 @@ export const finishEvent = async (req: Request, res: Response) => {
         loserRealTotal = Number(toNano(1));
     }
 
-    const serviceFee = loserRealTotal * event.creatorNft.serviceFee;
-    const firstOwnerFee = loserRealTotal * event.creatorNft.firstOwnerFee;
-    const creatorFee = loserRealTotal * event.creatorNft.ownerFee;
+    const serviceFee = Math.floor(loserRealTotal * event.creatorNft.serviceFee);
+    const firstOwnerFee = Math.floor(loserRealTotal * event.creatorNft.firstOwnerFee);
+    const creatorFee = Math.floor(loserRealTotal * event.creatorNft.ownerFee);
 
     const totalToSend = loserRealTotal - serviceFee - firstOwnerFee - creatorFee;
 
@@ -101,6 +106,9 @@ export const finishEvent = async (req: Request, res: Response) => {
     const myBalance = await getMyBalance();
 
     if (Number(fromNano(myBalance)) < Number(fromNano(totalToSend))) {
+        console.log(
+            `Недостаточно баланса для проведения операции. Мой баланс: ${fromNano(myBalance)}\nНеобходимо:${fromNano(totalToSend)}`
+        );
         res.status(200).send(
             `Wallet Balance Error: ${fromNano(myBalance)} TON\nНужно: ${fromNano(Number(loserRealTotal) + Number(winnerRealTotal))} TON`
         );
@@ -259,7 +267,8 @@ async function notifyWinner(
     p: number,
     winner: string
 ) {
-    const text = `Завершился ивент:\n<code>${e.title}</code>\n\nИсход: <b>${winner === 'v1' ? 'Да' : 'Нет'}</b> в ${formatDate(new Date(e.expDateTimestamp))}\n\n<b>✅ВЫ ОКАЗАЛИСЬ ПРАВЫ! ПОЗДРАВЛЯЕМ!</b>\n\nНа ваш голос в <b>${fromNano(txAmount)} TON</b> приходится: <b>${Number(amount).toFixed(2)} TON</b> профита - это <b>+${(p * 100).toFixed(2)}%</b>\n\n<b>POLYTON</b> удерживает комиссию с профита:\n5% креатору голосования с NFT под номером (${e.creatorNft.symbol})\n2.5% за маркетинг другу или каналу, который вас пригласил\n2.5% комиссия на работу сервиса\n ⁃ Хотите стать креатором и зарабатывать 5% от Пула победителей вне зависимости от Исхода голосования?\nНапишите: @PMAssist ✍️`;
+    const profit = ((Number(amount) - Number(fromNano(txAmount))) / Number(fromNano(txAmount))) * 100;
+    const text = `Завершился ивент:\n<code>${e.title}</code>\n\nИсход: <b>${winner === 'v1' ? 'Да' : 'Нет'}</b> в ${formatDate(new Date(e.expDateTimestamp))}\n\n<b>✅ВЫ ОКАЗАЛИСЬ ПРАВЫ! ПОЗДРАВЛЯЕМ!</b>\n\nНа ваш голос в <b>${fromNano(txAmount)} TON</b> приходится: <b>${Number(amount).toFixed(2)} TON</b> профита - это <b>+${profit.toFixed(2)}%</b>\n\n<b>POLYTON</b> удерживает комиссию с профита:\n5% креатору голосования с NFT под номером (${e.creatorNft.symbol})\n2.5% за маркетинг другу или каналу, который вас пригласил\n2.5% комиссия на работу сервиса\n ⁃ Хотите стать креатором и зарабатывать 5% от Пула победителей вне зависимости от Исхода голосования?\nНапишите: @PMAssist ✍️`;
     await bot.api.sendMessage(tx.vote.userId, text, { parse_mode: 'HTML' }).catch(() => {});
 }
 
