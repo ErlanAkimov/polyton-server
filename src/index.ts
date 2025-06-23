@@ -6,6 +6,12 @@ import { getEvent } from './controllers/getEvent';
 import transactionFinder from './workers/transactionFinder';
 
 import hideExpiredEventWorker from './workers/hideExpiredEventWorker';
+import dotenv from 'dotenv';
+dotenv.config();
+
+if (!process.env.EXPRESS_PORT) {
+    throw new Error('Express port not found. Check .env file or environment variables');
+}
 
 export const teamchat = -1002517178759;
 
@@ -20,3 +26,5 @@ bot.on('message', async (ctx) => {
 
 setInterval(transactionFinder, 10000);
 setInterval(hideExpiredEventWorker, 10000);
+
+app.listen(process.env.EXPRESS_PORT, () => console.log(`express run on ${process.env.EXPRESS_PORT}`));

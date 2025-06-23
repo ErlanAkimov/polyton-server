@@ -24,6 +24,7 @@ export interface IUser {
     last_update: Date;
     ref: number | string | null;
     status: UserStatus;
+    allows_write_to_pm: boolean;
 }
 
 interface IBaseTransaction {

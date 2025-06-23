@@ -17,6 +17,7 @@ export default async function createNewUser({
         last_update: new Date(),
         ref,
         status: 2,
+        allows_write_to_pm: true,
     };
 
     await users.insertOne(user);

@@ -1,11 +1,11 @@
 import { Bot, Context, session } from 'grammy';
 import dotenv from 'dotenv';
 import { type Conversation, type ConversationFlavor, conversations, createConversation } from '@grammyjs/conversations';
-import { users } from './database';
 import { IUser } from './databaseTypes';
 import createNewUser from '../utils/createNewUser';
 import { autoRetry } from '@grammyjs/auto-retry';
 import spamConversation from '../bot/spamConversation';
+import { users } from './database';
 
 dotenv.config();
 
@@ -31,7 +31,8 @@ bot.use(createConversation(spamConversation, 'spamConversation'));
 
 bot.api.config.use(
     autoRetry({
-        rethrowHttpErrors: true,
+        maxRetryAttempts: 3,
+        maxDelaySeconds: 100,
         rethrowInternalServerErrors: true,
     })
 );
@@ -43,6 +44,8 @@ bot.command('spam', async (ctx) => {
         await ctx.reply('Нет доступа к данной команде').catch(() => {});
         return;
     }
+
+    await ctx.conversation.enter('spamConversation');
 });
 
 bot.command('start', async (ctx) => {
@@ -54,6 +57,8 @@ bot.command('start', async (ctx) => {
             username: ctx.from?.username,
             ref: Number(ctx.message?.text?.split(' ')[1]) || null,
         });
+    } else if (user && !user.allows_write_to_pm) {
+        await users.updateOne({ id: user.id }, { $set: { allows_write_to_pm: true } });
     }
 
     if (user.status === 0) {
@@ -85,12 +90,44 @@ bot.command('start', async (ctx) => {
     }).catch(() => {});
 });
 
-const initBot = async () => {
-    const getWebhook = await bot.api.getWebhookInfo();
-    if (getWebhook.url !== process.env.DOMAIN) {
-        await bot.api.setWebhook(`${webhookEndpoint}/bot-webhook-endpoint`);
-    }
-};
+bot.on('callback_query:data', async (ctx) => {
+    const data = ctx.callbackQuery.data;
 
-initBot();
+    await ctx.editMessageReplyMarkup().catch(() => console.log('Не удалось почистить reply-markup'));
+    await ctx.answerCallbackQuery().catch(() => {});
+
+    if (data === 'clear-reply') {
+        await ctx.answerCallbackQuery();
+        return;
+    }
+
+    if (data.startsWith('copyMessagesForAll:')) {
+        const messageId = Number(data.split(':')[1]);
+        const list = await users.find({ allows_write_to_pm: { $ne: false } }).toArray();
+
+        let success = 0;
+        let blocked = 0;
+
+        for (let user of list) {
+            try {
+                await ctx.api.copyMessage(user.id, ctx.chatId!, messageId);
+                success++;
+            } catch {
+                await users.updateOne({ id: user.id }, { $set: { allows_write_to_pm: false } });
+                blocked++;
+            }
+
+            await new Promise((r) => setTimeout(r, 60));
+        }
+
+        await ctx
+            .reply(
+                `Рассылка завершена (${list.length})\nУспешно: ${success}\nЗаблокирован: ${blocked}\n\nОстальные ${list.length - success - blocked} не запускали бота`
+            )
+            .catch(() => console.log('Не удалось отчитаться о завершении рассылки'));
+    }
+});
+
+bot.start();
+
 export default bot;
