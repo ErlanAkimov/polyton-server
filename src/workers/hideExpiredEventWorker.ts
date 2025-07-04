@@ -8,7 +8,7 @@ export default async function hideExpiredEventWorker(eventId?: string) {
         status: {$in: ['active', 'hidden']},
     });
 
-    if (!expiredEvent) return;
+    if (!expiredEvent || expiredEvent.expDateTimestamp === 0) return;
 
     await events.updateOne({ id: expiredEvent.id }, { $set: { status: 'over' } });
 

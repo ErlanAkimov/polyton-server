@@ -7,6 +7,7 @@ import transactionFinder from './workers/transactionFinder';
 
 import hideExpiredEventWorker from './workers/hideExpiredEventWorker';
 import dotenv from 'dotenv';
+import { openWallet } from './utils/wallet';
 dotenv.config();
 
 if (!process.env.EXPRESS_PORT) {
@@ -14,7 +15,6 @@ if (!process.env.EXPRESS_PORT) {
 }
 
 export const teamchat = -1002517178759;
-
 app.use('/api/v1/auth/', authRouter);
 
 app.get('/api/v1/getEvents', getEvents);
@@ -28,3 +28,4 @@ setInterval(transactionFinder, 10000);
 setInterval(hideExpiredEventWorker, 10000);
 
 app.listen(process.env.EXPRESS_PORT, () => console.log(`express run on ${process.env.EXPRESS_PORT}`));
+

@@ -10,8 +10,12 @@ import {
     IVoteTransaction,
     IEventTransaction,
     IPayment,
+    IRefPayments,
 } from './databaseTypes';
+import { fromNano } from '@ton/core';
 dotenv.config();
+
+import fs from 'fs';
 
 const mongoConnectionString = process.env.MONGO_STRING;
 
@@ -20,8 +24,10 @@ if (!mongoConnectionString) {
 }
 
 const mongo = new MongoClient(mongoConnectionString);
+const mp = new MongoClient(process.env.MONGO_STRING_PROD || mongoConnectionString);
 
 const db = mongo.db('polyton');
+const dbp = mp.db('polyton');
 
 export const users: Collection<IUser> = db.collection('users');
 export const wallets: Collection<IWallet> = db.collection('wallets');
@@ -35,3 +41,5 @@ export const transactions: Collection<IVoteTransaction | IEventTransaction> = db
 
 export const requestsToJoin = db.collection('requsetsToJoin');
 export const payments: Collection<IPayment> = db.collection('payments');
+
+export const refPayments: Collection<IRefPayments> = db.collection('refPayments');

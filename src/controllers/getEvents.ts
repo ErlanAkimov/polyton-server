@@ -11,7 +11,7 @@ interface IResponse {
 export const getEvents = async (req: Request, res: Response) => {
     const userId = req.query.userId;
 
-    const list = await events.find({ status: 'active' }).toArray();
+    const list = await events.find({ status: {$ne: 'hidden'} }).toArray();
 
     let response: IResponse = {
         // prettier-ignore

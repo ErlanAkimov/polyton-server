@@ -22,7 +22,7 @@ export interface IUser {
     username: string;
     created_at: Date;
     last_update: Date;
-    ref: number | string | null;
+    ref: number | null;
     status: UserStatus;
     allows_write_to_pm: boolean;
 }
@@ -52,7 +52,7 @@ export interface IVoteTransaction extends IBaseTransaction {
         pickedVote: 'v1' | 'v2';
         winningValue?: string;
     };
-    
+
     isVote: true;
 }
 
@@ -134,7 +134,19 @@ export interface IVoteItem {
         serviceFeeAmount: number;
         firstOwnerFeeAmount: number;
         nftOwnerAmount: number;
-    }
+    };
+}
+
+export interface IRefPayments {
+    id: string;
+    fromUserId: number;
+    toUserId: number;
+    amount: string;
+    transactionAmount: string;
+    transactionId: string;
+    status: 'pending' | 'active' | 'paid' | 'rejected';
+    createdAt: Date;
+    eventId: string;
 }
 
 export interface IDemoVote {
@@ -151,6 +163,7 @@ export interface ICreatorNft {
     ownerFee: number;
     serviceFee: number;
     firstOwnerFee: number;
+    refFee: number;
     index: number;
     firstOwner?: string;
 }

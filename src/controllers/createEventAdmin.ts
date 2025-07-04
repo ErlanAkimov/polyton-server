@@ -19,7 +19,8 @@ export const createEventAdmin = async (req: Request, res: Response) => {
         result,
         nftIndex,
         targetMcap,
-		expDateTimestamp
+		expDateTimestamp,
+        userId,
     } = req.body;
 
     if (user.status !== 0) {
@@ -68,7 +69,7 @@ export const createEventAdmin = async (req: Request, res: Response) => {
         result,
         contractAddress: '',
         tokenAddress: null,
-        userId: user.id,
+        userId: userId,
         startV1: collectedV1,
         startV2: collectedV2,
     };

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { IEventTransaction, IUser, IVoteItem, IVoteTransaction } from '../config/databaseTypes';
-import { events, transactions } from '../config/database';
+import { events, refPayments, transactions } from '../config/database';
 import { Address, beginCell, fromNano, internal, MessageRelaxed, SendMode, toNano } from '@ton/core';
 import bot from '../config/bot';
 import { openedWallet, openWallet, waitSeqno } from '../utils/wallet';
@@ -90,11 +90,14 @@ export const finishEvent = async (req: Request, res: Response) => {
         loserRealTotal = Number(toNano(1));
     }
 
-    const serviceFee = Math.floor(loserRealTotal * event.creatorNft.serviceFee);
-    const firstOwnerFee = Math.floor(loserRealTotal * event.creatorNft.firstOwnerFee);
-    const creatorFee = Math.floor(loserRealTotal * event.creatorNft.ownerFee);
+    const serviceFee = Math.floor((loserRealTotal + winnerRealTotal) * event.creatorNft.serviceFee); // Всегда 2.4%
+    const creatorFee = Math.floor((loserRealTotal + winnerRealTotal) * event.creatorNft.ownerFee); // 3.6% || 2.6%
 
-    const totalToSend = loserRealTotal - serviceFee - firstOwnerFee - creatorFee;
+    let refFee = Math.floor((loserRealTotal + winnerRealTotal) * event.creatorNft.refFee);
+
+    const firstOwnerFee = Math.floor(loserRealTotal * event.creatorNft.firstOwnerFee);
+
+    const totalToSend = Math.floor((loserRealTotal / 100) * 93);
 
     console.log(`SERVICE FEE:`, fromNano(serviceFee));
     console.log(`FIRST OWNER FEE:`, fromNano(firstOwnerFee));
@@ -105,10 +108,11 @@ export const finishEvent = async (req: Request, res: Response) => {
 
     const myBalance = await getMyBalance();
 
-    if (Number(fromNano(myBalance)) < Number(fromNano(totalToSend))) {
+    if (Number(fromNano(myBalance)) < Number(fromNano(totalToSend)) + Number(fromNano(winnerRealTotal))) {
         console.log(
             `Недостаточно баланса для проведения операции. Мой баланс: ${fromNano(myBalance)}\nНеобходимо:${fromNano(totalToSend)}`
         );
+
         res.status(200).send(
             `Wallet Balance Error: ${fromNano(myBalance)} TON\nНужно: ${fromNano(Number(loserRealTotal) + Number(winnerRealTotal))} TON`
         );
@@ -117,10 +121,12 @@ export const finishEvent = async (req: Request, res: Response) => {
 
     res.status(200).send('OK');
 
+    await refPayments.updateMany({ eventId: event.id }, { $set: { status: 'active' } });
+
     for (let tx of winnerVotes) {
         const txAmount = Number(tx.vote.amount);
         const percent = txAmount / winnerRealTotal;
-        const amount = fromNano(Math.floor(totalToSend * percent) + txAmount);
+        const amount = fromNano(Math.floor(totalToSend * percent) + Math.floor(txAmount * 0.93));
 
         messages.push(
             internal({
@@ -147,6 +153,7 @@ export const finishEvent = async (req: Request, res: Response) => {
     if (creatorTx) {
         const percent = creatorTxAmount / winnerRealTotal;
         const amountToSendForPool = fromNano(Math.floor(totalToSend * percent) + creatorTxAmount);
+
         messages.push(
             internal({
                 to: event.creator,
@@ -156,7 +163,14 @@ export const finishEvent = async (req: Request, res: Response) => {
         );
     }
 
-    if (messages.length <= 253 && !process.env.DEV_MODE) {
+    if (messages.length <= 252 && !process.env.DEV_MODE) {
+        messages.push(
+            internal({
+                to: Address.parse('UQA_LdVNb8pUyMAcpcbudJcLp9qJn7an--mLd8PRW4B0QyOW'),
+                value: fromNano(refFee),
+                body: beginCell().storeUint(0, 32).storeStringTail('Polyton. Referrals budget').endCell(),
+            })
+        );
         messages.push(
             internal({
                 to: Address.parse(event.creator),
@@ -167,7 +181,7 @@ export const finishEvent = async (req: Request, res: Response) => {
 
         messages.push(
             internal({
-                to: Address.parse('UQC8ZgerrzoSP5-duBkPg9oo5aNItwixrFrWwaVcV7U19gZV'),
+                to: Address.parse('UQDp6RwitkdTbwpKqtlg7zjVS8Dj5_NQXQV12OC-dIudDiTz'),
                 value: fromNano(serviceFee),
                 body: beginCell().storeUint(0, 32).storeStringTail('Polyton. Service Fee').endCell(),
             })
@@ -268,7 +282,7 @@ async function notifyWinner(
     winner: string
 ) {
     const profit = ((Number(amount) - Number(fromNano(txAmount))) / Number(fromNano(txAmount))) * 100;
-    const text = `Завершился ивент:\n<code>${e.title}</code>\n\nИсход: <b>${winner === 'v1' ? 'Да' : 'Нет'}</b> в ${formatDate(new Date(e.expDateTimestamp))}\n\n<b>✅ВЫ ОКАЗАЛИСЬ ПРАВЫ! ПОЗДРАВЛЯЕМ!</b>\n\nНа ваш голос в <b>${fromNano(txAmount)} TON</b> приходится: <b>${Number(amount).toFixed(2)} TON</b> профита - это <b>+${profit.toFixed(2)}%</b>\n\n<b>POLYTON</b> удерживает комиссию с профита:\n5% креатору голосования с NFT под номером (${e.creatorNft.symbol})\n2.5% за маркетинг другу или каналу, который вас пригласил\n2.5% комиссия на работу сервиса\n ⁃ Хотите стать креатором и зарабатывать 5% от Пула победителей вне зависимости от Исхода голосования?\nНапишите: @PMAssist ✍️`;
+    const text = `Завершился ивент:\n<code>${e.title}</code>\n\nИсход: <b>${winner === 'v1' ? 'Да' : 'Нет'}</b> в ${formatDate(new Date(e.expDateTimestamp))}\n\n<b>✅ВЫ ОКАЗАЛИСЬ ПРАВЫ! ПОЗДРАВЛЯЕМ!</b>\n\nНа ваш голос в <b>${fromNano(txAmount)} TON</b> приходится: <b>${(Number(amount) - Number(fromNano(txAmount))).toFixed(2)} TON</b> профита - это <b>+${profit.toFixed(2)}%</b>\n\n<b>POLYTON</b> удерживает комиссию с профита:\n5% креатору голосования с NFT под номером (${e.creatorNft.symbol})\n2.5% за маркетинг другу или каналу, который вас пригласил\n2.5% комиссия на работу сервиса\n ⁃ Хотите стать креатором и зарабатывать 5% от Пула победителей вне зависимости от Исхода голосования?\nНапишите: @PMAssist ✍️`;
     await bot.api.sendMessage(tx.vote.userId, text, { parse_mode: 'HTML' }).catch(() => {});
 }
 

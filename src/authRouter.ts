@@ -20,6 +20,7 @@ import { getEventsAdmin } from './controllers/getEvents';
 import { changeEventStatus } from './controllers/changeEventStatus';
 import { updateStartValue } from './controllers/updateStartValue';
 import {finishEvent} from './controllers/finishEvent'
+import { getRefs } from './controllers/getRefs';
 
 const authRouter = Router();
 
@@ -57,6 +58,7 @@ authRouter.get('/getEventsAdmin', getEventsAdmin);
 authRouter.post('/changeEventStatus', changeEventStatus)
 authRouter.post('/updateStartValue', updateStartValue)
 authRouter.post('/finishEvent', finishEvent)
+authRouter.get('/getRefs', getRefs)
 
 authRouter.get('/acceptMe', async (req, res) => {
     if (req.body.user.status === 3) {

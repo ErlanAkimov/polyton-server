@@ -11,6 +11,13 @@ export const demoVote = async (req: Request, res: Response) => {
         return;
     }
 
+    const myVote = await demoVotes.findOne({ userId: req.body.initData.id, eventId });
+
+    if (myVote) {
+        res.status(400).send({ message: 'already voted' });
+        return;
+    }
+
     await demoVotes.updateOne(
         { userId: req.body.initData.id, eventId },
         { $set: { userId: req.body.initData.id, eventId, voteType, updatedAt: new Date() } },

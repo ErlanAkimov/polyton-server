@@ -12,17 +12,17 @@ export interface openedWallet {
     client: TonClient;
 }
 
-export const toncenter = process.env.DEV_MODE ? "https://testnet.toncenter.com" :  'https://toncenter.com';
-export const tonapiUrl = process.env.DEV_MODE ? "https://testnet.tonapi.io" :  'https://tonapi.io';
+export const toncenter = process.env.DEV_MODE ? 'https://testnet.toncenter.com' : 'https://toncenter.com';
+export const tonapiUrl = process.env.DEV_MODE ? 'https://testnet.tonapi.io' : 'https://tonapi.io';
 
-export async function openWallet() {
-    const m = process.env.WALLET_MNEMONIC;
+export async function openWallet(mnemonic?: string, mainnet?: boolean) {
+    const m = mnemonic || process.env.WALLET_MNEMONIC;
 
     if (!m) return;
 
     const keyPair = await mnemonicToPrivateKey([m]);
     const client = new TonClient({
-        endpoint: `${toncenter}/api/v2/jsonRPC`,
+        endpoint: mainnet ? `https://toncenter.com` : `${toncenter}/api/v2/jsonRPC`,
         apiKey: 'c21c38e2cad78072beb7303787b1876828b554f12785a8d7a664d47547e00162',
     });
 
@@ -34,6 +34,7 @@ export async function openWallet() {
     const contract = client.open(wallet);
     return { contract, keyPair, client };
 }
+
 export const toncenterApi = axios.create({
     baseURL: `${toncenter}/api/`,
     params: {
